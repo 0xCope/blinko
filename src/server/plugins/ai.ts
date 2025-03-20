@@ -391,6 +391,7 @@ export class AiService {
 
       const processingMode = config.aiPostProcessingMode || 'comment';
       const aiResponse = result.text.trim();
+      console.log('AI TAG Response:', aiResponse);
 
       // Handle based on the processing mode
       if (processingMode === 'comment' || processingMode === 'both') {
@@ -415,15 +416,21 @@ export class AiService {
 
       if (processingMode === 'tags' || processingMode === 'both') {
         try {
-          // Extract tags from AI response
-          // Look for lines that have "tags:", "标签:" or similar indicators
-          const tagMatches = aiResponse.match(/(?:tags|标签|tag)[:\s]+(.*?)(?:\n|$)/i);
-          let suggestedTags: string[] = [];
+          // Supercharged tag extraction 💪
+          const tagLineRegex = /^(?:tags?|标签)\s*:*\s*([^]+?)(?=\n|$)/im;
+          const tagLineMatch = aiResponse.match(tagLineRegex);
+          
+          // Capture #tags in specified line OR entire response 
+          const searchArea = tagLineMatch?.[1] || aiResponse;
+          const hashtagRegex = /(#[\w-]+)(?:\)|\.|,|$)/gmi; 
+          
+          let suggestedTags = [...new Set(
+            Array.from(searchArea.matchAll(hashtagRegex), m => m[1].trim().toLowerCase())
+          )];
+          
 
-          if (tagMatches && tagMatches[1]) {
-            // Extract tags from format like "tags: tag1, tag2, tag3"
-            suggestedTags = tagMatches[1].split(',').map((tag) => tag.trim());
-          } else {
+          // Fallback if ZERO hashtags detected 🚨
+          if (!suggestedTags.length) {
             // If no clear tag format, process with an agent specialized for tag extraction
             const agent = await AiModelFactory.TagAgent();
             const result = await agent.generate(
